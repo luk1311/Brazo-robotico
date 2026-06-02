@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brazo Robótico — 4 Servos</title>
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <link rel="stylesheet" href="main.css" />
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <i class="ti ti-robot" style="font-size:22px;color:#7c6aff;" aria-hidden="true"></i>
+      Brazo robótico — 4 servos
+    </div>
+    <span id="conn-badge" class="badge badge-warn">
+      <i class="ti ti-wifi-off" style="font-size:12px"></i> Conectando…
+    </span>
+  </div>
+
+  <!-- Grid de 4 servos -->
+  <div class="grid" id="servo-grid"></div>
+
+  <!-- Panel inferior -->
+  <div class="bottom-grid">
+
+    <!-- Modo + Reset -->
+    <div class="card">
+      <p class="section-label">Modo de operación</p>
+      <div class="mode-row">
+        <button class="mode-btn active" id="btn-manual" onclick="setModo('manual')">
+          <i class="ti ti-hand-finger" aria-hidden="true"></i> Manual
+        </button>
+        <button class="mode-btn" id="btn-auto" onclick="setModo('auto')">
+          <i class="ti ti-cpu" aria-hidden="true"></i> Auto
+        </button>
+      </div>
+      <button class="reset-btn" onclick="resetAll()">
+        <i class="ti ti-refresh" aria-hidden="true"></i> Centrar todos (90°)
+      </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="card">
+      <p class="section-label">Estado</p>
+      <div class="stat-line"><span>Publicaciones totales</span><span id="pub-total">0</span></div>
+      <div class="stat-line"><span>Broker</span><span>broker.hivemq.com</span></div>
+      <div class="stat-line"><span>Puerto</span><span>8884 (WSS)</span></div>
+      <div class="stat-line"><span>Throttle</span><span>40 ms</span></div>
+    </div>
+
+  </div>
+
+  <!-- Log -->
+  <div class="card">
+    <div class="log-header">
+      <p class="section-label" style="margin:0;">
+        <i class="ti ti-terminal-2" style="font-size:12px;vertical-align:-1px;" aria-hidden="true"></i>
+        Log de actividad
+      </p>
+      <button class="log-clear" onclick="clearLog()">limpiar</button>
+    </div>
+    <div id="log"></div>
+  </div>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
