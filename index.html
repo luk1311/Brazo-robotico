@@ -4,15 +4,46 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Brazo Robótico — 4 Servos</title>
-  <link rel="icon" href="favicon.ico" />
+  <link rel="icon" href="favicon.ico" /> 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-  <link rel="stylesheet" href="main.css" />
+  <link rel="stylesheet" href="main.css" />  
 </head>
 <body>
-<div class="wrapper">
 
-  <!-- Header -->
+<!-- ── Login overlay ──────────────────────────────────── -->
+<div id="login-overlay">
+  <div class="login-card">
+    <div class="login-title">
+      <i class="ti ti-lock" style="font-size:20px;color:#7c6aff;" aria-hidden="true"></i>
+      Acceso al panel
+    </div>
+    <div class="field">
+      <label>Broker MQTT (host)</label>
+      <input type="text" id="inp-host" placeholder="abc123.s1.eu.hivemq.cloud" />
+    </div>
+    <div class="field">
+      <label>Usuario</label>
+      <input type="text" id="inp-user" placeholder="usuario" autocomplete="username" />
+    </div>
+    <div class="field">
+      <label>Contraseña</label>
+      <input type="password" id="inp-pass" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+    <span class="login-err" id="login-err">
+      <i class="ti ti-alert-circle" style="font-size:12px;vertical-align:-1px;"></i>
+      No se pudo conectar. Verifica los datos.
+    </span>
+    <button class="login-btn" onclick="conectar()">
+      <i class="ti ti-plug-connected" style="font-size:13px;vertical-align:-1px;"></i>
+      Conectar
+    </button>
+  </div>
+</div>
+
+<!-- ── Panel principal ────────────────────────────────── -->
+<div class="wrapper" id="main">
+
   <div class="header">
     <div class="header-left">
       <i class="ti ti-robot" style="font-size:22px;color:#7c6aff;" aria-hidden="true"></i>
@@ -23,13 +54,25 @@
     </span>
   </div>
 
-  <!-- Grid de 4 servos -->
+  <!-- Banner estado del ESP32 -->
+  <div id="device-banner">
+    <div class="device-info">
+      <div class="device-dot" id="device-dot"></div>
+      <div>
+        <div id="device-label">ESP32 — sin datos aún</div>
+        <div id="device-since"></div>
+      </div>
+    </div>
+    <button id="logout-btn" onclick="logout()">
+      <i class="ti ti-logout" style="font-size:11px;vertical-align:-1px;"></i> Salir
+    </button>
+  </div>
+
+  <!-- Grid 4 servos -->
   <div class="grid" id="servo-grid"></div>
 
   <!-- Panel inferior -->
   <div class="bottom-grid">
-
-    <!-- Modo + Reset -->
     <div class="card">
       <p class="section-label">Modo de operación</p>
       <div class="mode-row">
@@ -44,16 +87,13 @@
         <i class="ti ti-refresh" aria-hidden="true"></i> Centrar todos (90°)
       </button>
     </div>
-
-    <!-- Stats -->
     <div class="card">
       <p class="section-label">Estado</p>
-      <div class="stat-line"><span>Publicaciones totales</span><span id="pub-total">0</span></div>
-      <div class="stat-line"><span>Broker</span><span>broker.hivemq.com</span></div>
-      <div class="stat-line"><span>Puerto</span><span>8884 (WSS)</span></div>
+      <div class="stat-line"><span>Publicaciones</span><span id="pub-total">0</span></div>
+      <div class="stat-line"><span>Broker</span><span id="stat-host">—</span></div>
+      <div class="stat-line"><span>Puerto</span><span>8883 (TLS)</span></div>
       <div class="stat-line"><span>Throttle</span><span>40 ms</span></div>
     </div>
-
   </div>
 
   <!-- Log -->
