@@ -145,7 +145,7 @@ function setModo(modo) {
 }
 
 // ── Conectar con credenciales ─────────────────────────────
-const MQTT_HOST = 'TU_HOST.s1.eu.hivemq.cloud'; // ← cambia esto
+const MQTT_HOST = '41287df21912452aa44d6b4f228a5f6d.s1.eu.hivemq.cloud';
 
 function conectar() {
   const user  = document.getElementById('inp-user').value.trim();
