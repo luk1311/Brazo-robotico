@@ -5,7 +5,7 @@ let ultimoEnvio = [0,0,0,0];
 const INTERVALO = 40;
 const servoNames = ['Base','Hombro','Codo','Muñeca'];
 const servoIcons = ['ti-rotate-clockwise','ti-arrow-up','ti-fold-up','ti-hand-grab'];
-
+ 
 // ── Log ───────────────────────────────────────────────────
 const logEl = document.getElementById('log');
 function addLog(msg, tipo='inf') {
@@ -17,18 +17,18 @@ function addLog(msg, tipo='inf') {
   while (logEl.children.length > 50) logEl.removeChild(logEl.lastChild);
 }
 function clearLog() { logEl.innerHTML = ''; }
-
+ 
 // ── Device status ─────────────────────────────────────────
 let deviceOnline = false;
 let lastSeenInterval = null;
 let connectedAt = null;
-
+ 
 function setDevice(online) {
   deviceOnline = online;
   const dot   = document.getElementById('device-dot');
   const label = document.getElementById('device-label');
   const since = document.getElementById('device-since');
-
+ 
   if (online) {
     dot.className   = 'device-dot on';
     label.textContent = 'ESP32 — conectado';
@@ -47,14 +47,14 @@ function setDevice(online) {
     addLog('ESP32 fuera de línea', 'err');
   }
 }
-
+ 
 // ── Construir cards de servos ─────────────────────────────
 function buildCards() {
   const grid = document.getElementById('servo-grid');
   grid.innerHTML = '';
   const arcLen = (Math.PI * 58).toFixed(1);
   const arcHalf = (Math.PI * 29).toFixed(1);
-
+ 
   for (let i = 1; i <= 4; i++) {
     grid.innerHTML += `
     <div class="servo-card" id="card${i}">
@@ -95,7 +95,7 @@ function buildCards() {
     </div>`;
   }
 }
-
+ 
 // ── Ángulo visual ─────────────────────────────────────────
 function updateAngle(i, val) {
   const v = parseInt(val);
@@ -104,7 +104,7 @@ function updateAngle(i, val) {
   document.getElementById('arc'    + i).style.strokeDashoffset = (arcLen - (v/180)*arcLen).toFixed(1);
   document.getElementById('needle' + i).style.transform = `rotate(${-90 + v}deg)`;
 }
-
+ 
 // ── Mover servo ───────────────────────────────────────────
 function mover(servo, valor) {
   updateAngle(servo, valor);
@@ -120,7 +120,7 @@ function mover(servo, valor) {
     addLog(`Servo ${servo} (${servoNames[servo-1]}) → ${valor}°`, 'ok');
   }
 }
-
+ 
 function irA(servo, val) {
   document.getElementById('slider' + servo).value = val;
   updateAngle(servo, val);
@@ -131,37 +131,37 @@ function irA(servo, val) {
     addLog(`Preset servo ${servo} → ${val}°`, 'ok');
   }
 }
-
+ 
 function resetAll() {
   for (let i = 1; i <= 4; i++) irA(i, 90);
   addLog('Todos centrados a 90°', 'inf');
 }
-
+ 
 function setModo(modo) {
   document.getElementById('btn-manual').classList.toggle('active', modo==='manual');
   document.getElementById('btn-auto').classList.toggle('active', modo==='auto');
   if (client && client.connected) client.publish('brazo/modo', modo);
   addLog(`Modo → ${modo}`, 'inf');
 }
-
+ 
 // ── Conectar con credenciales ─────────────────────────────
 const MQTT_HOST = '41287df21912452aa44d6b4f228a5f6d.s1.eu.hivemq.cloud';
-
-function conectar() {
-  const user  = document.getElementById('inp-user').value.trim();
-  const pass  = document.getElementById('inp-pass').value;
+ 
+function conectar(user, pass) {
+  if (!user) user = document.getElementById('inp-user').value.trim();
+  if (!pass) pass = document.getElementById('inp-pass').value;
   const errEl = document.getElementById('login-err');
   errEl.style.display = 'none';
-
+ 
   if (!user || !pass) {
     errEl.textContent = 'Completa usuario y contraseña.';
     errEl.style.display = 'block';
     return;
   }
-
+ 
   const url = `wss://${MQTT_HOST}:8884/mqtt`;
   addLog('Conectando al broker…', 'inf');
-
+ 
   client = mqtt.connect(url, {
     username: user,
     password: pass,
@@ -169,37 +169,43 @@ function conectar() {
     connectTimeout: 6000,
     reconnectPeriod: 4000,
   });
-
+ 
   client.on('connect', () => {
+    // Guardar credenciales para la próxima vez
+    localStorage.setItem('brazo_user', user);
+    localStorage.setItem('brazo_pass', pass);
+ 
     document.getElementById('login-overlay').style.display = 'none';
     document.getElementById('main').style.display = 'flex';
     document.getElementById('main').style.flexDirection = 'column';
-    
     document.getElementById('conn-badge').className = 'badge badge-ok';
     document.getElementById('conn-badge').innerHTML = '<i class="ti ti-wifi" style="font-size:12px"></i> Conectado';
-
-    // Suscribirse al estado del ESP32
+ 
     client.subscribe('brazo/status');
     addLog('Broker conectado', 'ok');
     buildCards();
   });
-
+ 
   client.on('error', (e) => {
-    errEl.textContent = 'No se pudo conectar. Verifica host, usuario y contraseña.';
+    // Si falla con credenciales guardadas, borrarlas
+    localStorage.removeItem('brazo_user');
+    localStorage.removeItem('brazo_pass');
+    errEl.textContent = 'No se pudo conectar. Verifica usuario y contraseña.';
     errEl.style.display = 'block';
+    document.getElementById('login-overlay').style.display = 'flex';
+    document.getElementById('main').style.display = 'none';
     document.getElementById('conn-badge').className = 'badge badge-err';
     document.getElementById('conn-badge').innerHTML = '<i class="ti ti-wifi-off" style="font-size:12px"></i> Error';
-    addLog('Error de conexión: ' + e.message, 'err');
+    addLog('Error de conexión: ' + (e.message || ''), 'err');
     client.end();
   });
-
+ 
   client.on('offline', () => {
     document.getElementById('conn-badge').className = 'badge badge-warn';
     document.getElementById('conn-badge').innerHTML = '<i class="ti ti-wifi-off" style="font-size:12px"></i> Desconectado';
     addLog('Broker desconectado', 'err');
   });
-
-  // ── Recibir mensajes ──────────────────────────────────
+ 
   client.on('message', (topic, payload) => {
     const msg = payload.toString();
     if (topic === 'brazo/status') {
@@ -207,13 +213,29 @@ function conectar() {
     }
   });
 }
-
+ 
+// ── Auto-login al cargar ──────────────────────────────────
+(function autoLogin() {
+  const user = localStorage.getItem('brazo_user');
+  const pass = localStorage.getItem('brazo_pass');
+  if (user && pass) {
+    // Ocultar login de inmediato, sin esperar al evento load
+    document.getElementById('login-overlay').style.display = 'none';
+    document.getElementById('inp-user').value = user;
+    document.getElementById('inp-pass').value = pass;
+    conectar(user, pass);
+  }
+})();
+ 
 // ── Logout ────────────────────────────────────────────────
 function logout() {
+  localStorage.removeItem('brazo_user');
+  localStorage.removeItem('brazo_pass');
   if (client) { client.end(); client = null; }
   clearInterval(lastSeenInterval);
   document.getElementById('main').style.display = 'none';
   document.getElementById('login-overlay').style.display = 'flex';
+  document.getElementById('inp-user').value = '';
   document.getElementById('inp-pass').value = '';
   addLog('Sesión cerrada', 'inf');
 }
