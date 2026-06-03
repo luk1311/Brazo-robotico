@@ -145,21 +145,22 @@ function setModo(modo) {
 }
 
 // ── Conectar con credenciales ─────────────────────────────
+const MQTT_HOST = 'TU_HOST.s1.eu.hivemq.cloud'; // ← cambia esto
+
 function conectar() {
-  const host = document.getElementById('inp-host').value.trim();
-  const user = document.getElementById('inp-user').value.trim();
-  const pass = document.getElementById('inp-pass').value;
+  const user  = document.getElementById('inp-user').value.trim();
+  const pass  = document.getElementById('inp-pass').value;
   const errEl = document.getElementById('login-err');
   errEl.style.display = 'none';
 
-  if (!host || !user || !pass) {
-    errEl.textContent = 'Completa todos los campos.';
+  if (!user || !pass) {
+    errEl.textContent = 'Completa usuario y contraseña.';
     errEl.style.display = 'block';
     return;
   }
 
-  const url = `wss://${host}:8884/mqtt`;
-  addLog(`Conectando a ${host}…`, 'inf');
+  const url = `wss://${MQTT_HOST}:8884/mqtt`;
+  addLog('Conectando al broker…', 'inf');
 
   client = mqtt.connect(url, {
     username: user,
@@ -173,7 +174,7 @@ function conectar() {
     document.getElementById('login-overlay').style.display = 'none';
     document.getElementById('main').style.display = 'flex';
     document.getElementById('main').style.flexDirection = 'column';
-    document.getElementById('stat-host').textContent = host;
+    
     document.getElementById('conn-badge').className = 'badge badge-ok';
     document.getElementById('conn-badge').innerHTML = '<i class="ti ti-wifi" style="font-size:12px"></i> Conectado';
 
