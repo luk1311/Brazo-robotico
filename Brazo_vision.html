@@ -3,27 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Brazo Robótico — Visión Artificial</title>
+  <title>Brazo Robótico — 4 Servos</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: Arial, sans-serif;
-      background: #0e0b1a;
-      color: #e0d9f7;
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-
-    /* ── Login overlay ── */
+    body { font-family: Arial, sans-serif; background: #0e0b1a; color: #e0d9f7; padding: 1.5rem; min-height: 100vh; }
+    .wrapper { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+ 
+    /* Header */
+    .header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 4px; }
+    .header-left { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 500; }
+ 
+    /* Badges */
+    .badge { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 8px; display: inline-flex; align-items: center; gap: 5px; }
+    .badge-warn { background: #2e2200; color: #f0b429; }
+    .badge-ok   { background: #0f1f2e; color: #7c6aff; border: 0.5px solid #7c6aff; }
+    .badge-err  { background: #2e0a1a; color: #f87191; }
+    .badge-dev-on  { background: #0a2e1a; color: #3ecf8e; }
+    .badge-dev-off { background: #2e2200; color: #f0b429; }
+ 
+    /* Login overlay */
     #login-overlay {
       position: fixed; inset: 0; background: #0e0b1a;
-      display: flex; align-items: center; justify-content: center; z-index: 200;
+      display: flex; align-items: center; justify-content: center; z-index: 100;
     }
     .login-card {
       background: #17112e; border: 0.5px solid rgba(160,130,255,0.25);
@@ -33,214 +36,112 @@
     .login-title { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 500; }
     .field { display: flex; flex-direction: column; gap: 5px; }
     .field label { font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: #7c6aaa; }
-    .field input { background: #1e1638; border: 0.5px solid rgba(160,130,255,0.25); border-radius: 8px; padding: 9px 12px; color: #e0d9f7; font-size: 13px; outline: none; }
+    .field input {
+      background: #1e1638; border: 0.5px solid rgba(160,130,255,0.25);
+      border-radius: 8px; padding: 9px 12px; color: #e0d9f7; font-size: 13px; outline: none;
+    }
     .field input:focus { border-color: #7c6aff; }
-    .login-btn { padding: 10px; font-size: 13px; font-weight: 500; background: #7c6aff; border: none; border-radius: 8px; color: #fff; cursor: pointer; transition: opacity 0.15s; }
+    .login-btn {
+      padding: 10px; font-size: 13px; font-weight: 500;
+      background: #7c6aff; border: none; border-radius: 8px;
+      color: #fff; cursor: pointer; transition: opacity 0.15s;
+    }
     .login-btn:hover { opacity: 0.88; }
     .login-err { font-size: 12px; color: #f87191; display: none; }
-
-    /* ── App shell ── */
-    #app { display: none; flex-direction: column; height: 100vh; }
-
-    /* ── Header ── */
-    .app-header {
+ 
+    /* Main content */
+    #main { display: none; }
+ 
+    /* Grid servos */
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 520px) { .grid { grid-template-columns: 1fr; } }
+ 
+    .servo-card {
+      background: #17112e; border: 0.5px solid rgba(160,130,255,0.18);
+      border-radius: 12px; padding: 1.1rem 1.25rem 1rem;
+      display: flex; flex-direction: column; gap: 10px;
+      transition: border-color 0.2s;
+    }
+    .servo-card.pulse { border-color: rgba(124,106,255,0.6); }
+ 
+    .servo-header { display: flex; align-items: center; justify-content: space-between; }
+    .servo-title { font-size: 13px; font-weight: 500; color: #c4b5fd; display: flex; align-items: center; gap: 6px; }
+    .servo-angle { display: flex; align-items: baseline; gap: 3px; }
+    .servo-angle .num { font-size: 28px; font-weight: 500; color: #c4b5fd; line-height: 1; }
+    .servo-angle .deg { font-size: 13px; color: #7c6aaa; }
+ 
+    .arc-wrap { display: flex; justify-content: center; }
+    .arc-bg-s   { fill: none; stroke: rgba(124,106,255,0.12); stroke-width: 7; }
+    .arc-fill-s { fill: none; stroke: #7c6aff; stroke-width: 7; stroke-linecap: round; transition: stroke-dashoffset 0.18s ease; }
+    .needle-s   { transform-origin: 70px 70px; transition: transform 0.18s ease; }
+ 
+    input[type=range] { -webkit-appearance: none; width: 100%; height: 4px; border-radius: 4px; background: rgba(124,106,255,0.18); outline: none; cursor: pointer; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #7c6aff; cursor: pointer; box-shadow: 0 0 6px rgba(124,106,255,0.5); transition: transform 0.1s; }
+    input[type=range]::-webkit-slider-thumb:active { transform: scale(1.25); }
+ 
+    .slider-ticks { display: flex; justify-content: space-between; font-size: 10px; color: #4a3f6b; margin-top: 4px; }
+ 
+    .presets { display: flex; gap: 5px; }
+    .preset { flex: 1; padding: 5px 0; font-size: 11px; border: 0.5px solid rgba(160,130,255,0.18); border-radius: 6px; background: #1e1638; color: #9d8ec7; cursor: pointer; transition: all 0.12s; text-align: center; }
+    .preset:hover { border-color: #7c6aff; color: #c4b5fd; background: #251d47; }
+ 
+    /* Panel inferior */
+    .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 520px) { .bottom-grid { grid-template-columns: 1fr; } }
+ 
+    .card { background: #17112e; border: 0.5px solid rgba(160,130,255,0.18); border-radius: 12px; padding: 1.1rem 1.25rem; }
+    .section-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #7c6aaa; margin-bottom: 10px; }
+ 
+    .mode-row { display: flex; gap: 8px; margin-bottom: 10px; }
+    .mode-btn { flex: 1; padding: 9px 6px; font-size: 12px; font-weight: 500; border: 0.5px solid rgba(160,130,255,0.2); border-radius: 8px; background: #1e1638; color: #7c6aaa; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; transition: all 0.15s; }
+    .mode-btn:hover  { background: #251d47; color: #c4b5fd; }
+    .mode-btn.active { border-color: #7c6aff; background: #1e1050; color: #c4b5fd; }
+ 
+    .reset-btn { width: 100%; padding: 9px; font-size: 12px; font-weight: 500; border: 0.5px solid rgba(160,130,255,0.25); border-radius: 8px; background: #1e1638; color: #9d8ec7; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s; }
+    .reset-btn:hover { border-color: #7c6aff; color: #c4b5fd; background: #251d47; }
+ 
+    .stat-line { display: flex; justify-content: space-between; font-size: 12px; color: #7c6aaa; padding: 3px 0; border-bottom: 0.5px solid rgba(160,130,255,0.07); }
+    .stat-line:last-child { border-bottom: none; }
+    .stat-line span:last-child { font-family: monospace; font-size: 11px; color: #c4b5fd; }
+ 
+    /* Dispositivo banner */
+    #device-banner {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 20px;
-      background: #17112e;
-      border-bottom: 0.5px solid rgba(160,130,255,0.18);
-      flex-shrink: 0;
+      padding: 10px 14px; border-radius: 10px;
+      border: 0.5px solid rgba(160,130,255,0.18);
+      background: #17112e; font-size: 13px;
     }
-    .header-left { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 500; color: #c4b5fd; }
-    .header-right { display: flex; align-items: center; gap: 10px; }
-
-    .badge { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 8px; display: inline-flex; align-items: center; gap: 5px; }
-    .badge-warn { background: #2e2200; color: #f0b429; }
-    .badge-ok   { background: #0f1f2e; color: #7c6aff; border: 0.5px solid #7c6aff; }
-    .badge-err  { background: #2e0a1a; color: #f87191; }
-    .badge-dev-on  { background: #0a2e1a; color: #3ecf8e; border: 0.5px solid #3ecf8e; }
-    .badge-dev-off { background: #2e1a00; color: #f0b429; }
-
-    .nav-link {
-      font-size: 12px; padding: 6px 12px; border-radius: 8px;
-      border: 0.5px solid rgba(160,130,255,0.2);
-      background: #1e1638; color: #9d8ec7; cursor: pointer;
-      text-decoration: none; display: flex; align-items: center; gap: 5px;
-      transition: all 0.15s;
-    }
-    .nav-link:hover { border-color: #7c6aff; color: #c4b5fd; }
-
+    .device-info { display: flex; align-items: center; gap: 10px; }
+    .device-dot { width: 8px; height: 8px; border-radius: 50%; background: #f0b429; flex-shrink: 0; transition: background 0.3s; }
+    .device-dot.on { background: #3ecf8e; }
+    .device-dot.off { background: #f87191; }
+    #device-label { color: #c4b5fd; font-weight: 500; }
+    #device-since { font-size: 11px; color: #7c6aaa; }
     #logout-btn { font-size: 11px; border: 0.5px solid rgba(160,130,255,0.2); background: #1e1638; color: #9d8ec7; padding: 5px 12px; border-radius: 6px; cursor: pointer; }
     #logout-btn:hover { border-color: #7c6aff; color: #c4b5fd; }
-
-    /* ── Main layout ── */
-    .main-layout {
-      display: grid;
-      grid-template-columns: 1fr 300px;
-      flex: 1;
-      overflow: hidden;
-    }
-    @media (max-width: 860px) { .main-layout { grid-template-columns: 1fr; } }
-
-    /* ── Camera side ── */
-    .camera-side {
-      display: flex; flex-direction: column;
-      border-right: 0.5px solid rgba(160,130,255,0.18);
-      overflow: hidden;
-    }
-
-    .cam-toolbar {
-      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-      padding: 10px 16px;
-      background: #17112e;
-      border-bottom: 0.5px solid rgba(160,130,255,0.18);
-      flex-shrink: 0;
-    }
-
-    .cam-btn {
-      padding: 7px 16px; font-size: 12px; font-weight: 500;
-      border: 0.5px solid rgba(160,130,255,0.3);
-      border-radius: 8px; background: #1e1638; color: #9d8ec7;
-      cursor: pointer; display: flex; align-items: center; gap: 6px;
-      transition: all 0.15s;
-    }
-    .cam-btn:hover { border-color: #7c6aff; color: #c4b5fd; background: #251d47; }
-    .cam-btn.active { border-color: #7c6aff; background: #1e1050; color: #c4b5fd; }
-    .cam-btn.danger { border-color: rgba(248,113,145,0.4); color: #f87191; }
-    .cam-btn.danger:hover { background: rgba(248,113,145,0.08); }
-
-    .mode-group { display: flex; gap: 6px; margin-left: auto; }
-    .mode-pill {
-      padding: 6px 14px; font-size: 11px; font-weight: 500;
-      border: 0.5px solid rgba(160,130,255,0.2);
-      border-radius: 20px; background: #1e1638; color: #7c6aaa;
-      cursor: pointer; transition: all 0.15s;
-    }
-    .mode-pill.active { border-color: #7c6aff; background: #1e1050; color: #c4b5fd; }
-
-    .fps-strip {
-      display: flex; align-items: center; gap: 14px;
-      padding: 6px 16px;
-      background: rgba(0,0,0,0.3);
-      border-bottom: 0.5px solid rgba(160,130,255,0.1);
-      flex-shrink: 0;
-      font-size: 11px;
-    }
-    .fps-label { color: #4a3f6b; text-transform: uppercase; letter-spacing: 0.06em; font-size: 10px; }
-    .fps-val   { color: #7c6aff; font-family: monospace; min-width: 28px; }
-    .hand-box {
-      width: 22px; height: 22px; border: 0.5px solid rgba(160,130,255,0.2);
-      border-radius: 5px; display: flex; align-items: center; justify-content: center;
-      font-size: 13px; transition: all 0.2s;
-    }
-    .hand-box.detected { border-color: #3ecf8e; background: rgba(62,207,142,0.1); }
-
-    .cam-wrapper {
-      flex: 1; position: relative; background: #000; overflow: hidden;
-    }
-
-    #videoElement {
-      position: absolute; width: 100%; height: 100%;
-      object-fit: cover; transform: scaleX(-1); opacity: 0.82;
-    }
-    #outputCanvas {
-      position: absolute; inset: 0; width: 100%; height: 100%;
-      transform: scaleX(-1);
-    }
-
-    .no-cam-msg {
-      position: absolute; inset: 0;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 12px; color: #4a3f6b;
-    }
-    .no-cam-msg .icon { font-size: 48px; opacity: 0.4; }
-    .no-cam-msg p { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
-
-    /* Corner decorations */
-    .corner { position: absolute; width: 24px; height: 24px; border-color: rgba(124,106,255,0.5); border-style: solid; }
-    .corner.tl { top: 14px; left: 14px; border-width: 2px 0 0 2px; }
-    .corner.tr { top: 14px; right: 14px; border-width: 2px 2px 0 0; }
-    .corner.bl { bottom: 14px; left: 14px; border-width: 0 0 2px 2px; }
-    .corner.br { bottom: 14px; right: 14px; border-width: 0 2px 2px 0; }
-
-    .gesture-badge {
-      position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
-      background: rgba(14,11,26,0.88); border: 0.5px solid #7c6aff;
-      padding: 7px 22px; border-radius: 20px;
-      font-size: 12px; font-weight: 600; letter-spacing: 0.1em;
-      color: #c4b5fd; text-transform: uppercase;
-      opacity: 0; transition: opacity 0.25s; white-space: nowrap;
-    }
-    .gesture-badge.show { opacity: 1; }
-
-    /* ── Right panel ── */
-    .right-panel {
-      display: flex; flex-direction: column;
-      background: #17112e;
-      overflow-y: auto;
-    }
-
-    .panel-block { padding: 14px 16px; border-bottom: 0.5px solid rgba(160,130,255,0.1); }
-    .panel-block:last-child { border-bottom: none; }
-
-    .block-label {
-      font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
-      text-transform: uppercase; color: #7c6aaa; margin-bottom: 12px;
-      display: flex; align-items: center; gap: 6px;
-    }
-    .block-label::after { content: ''; flex: 1; height: 0.5px; background: rgba(160,130,255,0.12); }
-
-    /* Servo rows */
-    .servo-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-    .servo-row:last-child { margin-bottom: 0; }
-    .servo-name { font-size: 10px; color: #7c6aaa; width: 56px; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.05em; }
-    .servo-track { flex: 1; height: 3px; background: rgba(124,106,255,0.15); border-radius: 2px; position: relative; }
-    .servo-fill  { height: 100%; background: linear-gradient(90deg, #7c6aff, #a78bff); border-radius: 2px; transition: width 0.12s ease; }
-    .servo-thumb { position: absolute; top: 50%; transform: translate(-50%,-50%); width: 9px; height: 9px; background: #7c6aff; border-radius: 50%; box-shadow: 0 0 5px rgba(124,106,255,0.6); transition: left 0.12s ease; }
-    .servo-val   { font-family: monospace; font-size: 12px; color: #c4b5fd; width: 36px; text-align: right; flex-shrink: 0; }
-
-    /* Gripper */
-    .gripper-wrap { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 8px 0; }
-    .gripper-jaw { width: 12px; height: 44px; background: rgba(160,130,255,0.1); border: 0.5px solid rgba(160,130,255,0.25); border-radius: 3px; transition: transform 0.2s ease; }
-    .gripper-jaw.left  { transform-origin: right center; }
-    .gripper-jaw.right { transform-origin: left center; }
-    .gripper-center { text-align: center; }
-    .gripper-pct   { font-size: 22px; font-weight: 500; color: #f87191; line-height: 1; }
-    .gripper-sub   { font-size: 10px; color: #7c6aaa; letter-spacing: 0.06em; margin-top: 3px; }
-
-    /* Landmark grid */
-    .lm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
-    .lm-card { background: rgba(124,106,255,0.04); border: 0.5px solid rgba(160,130,255,0.12); border-radius: 7px; padding: 8px 10px; }
-    .lm-name { font-size: 9px; letter-spacing: 0.08em; color: #4a3f6b; text-transform: uppercase; margin-bottom: 4px; }
-    .lm-val  { font-family: monospace; font-size: 12px; color: #9d8ec7; }
-    .lm-val span { color: #c4b5fd; }
-
-    /* Arm SVG */
-    .arm-wrap { display: flex; justify-content: center; padding: 6px 0; }
-
+ 
     /* Log */
-    #mqtt-log { max-height: 130px; overflow-y: auto; display: flex; flex-direction: column-reverse; }
-    .log-row { font-size: 10px; font-family: monospace; padding: 2px 0; border-bottom: 0.5px solid rgba(160,130,255,0.06); display: flex; gap: 8px; }
-    .log-ts   { color: #4a3f6b; flex-shrink: 0; }
-    .log-ok   { color: #7c6aff; }
-    .log-err  { color: #f87191; }
-    .log-inf  { color: #7c6aaa; }
-    .log-dev  { color: #3ecf8e; }
     .log-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-    .log-clear { font-size: 10px; border: none; background: none; color: #4a3f6b; cursor: pointer; }
+    .log-clear { font-size: 11px; border: none; background: none; color: #4a3f6b; cursor: pointer; }
     .log-clear:hover { color: #7c6aaa; }
-
-    ::-webkit-scrollbar { width: 3px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(124,106,255,0.2); border-radius: 2px; }
+    #log { max-height: 90px; overflow-y: auto; display: flex; flex-direction: column-reverse; }
+    .log-row { font-size: 11px; font-family: monospace; padding: 2px 0; border-bottom: 0.5px solid rgba(160,130,255,0.07); display: flex; gap: 8px; }
+    .log-ts  { color: #4a3f6b; flex-shrink: 0; }
+    .log-ok  { color: #7c6aff; }
+    .log-err { color: #f87191; }
+    .log-inf { color: #7c6aaa; }
+    .log-dev { color: #3ecf8e; }
+ 
+    .divider { border: none; border-top: 0.5px solid rgba(160,130,255,0.1); margin: 8px 0; }
   </style>
 </head>
 <body>
-
-<!-- ── Login ──────────────────────────────────────────── -->
+ 
+<!-- ── Login overlay ──────────────────────────────────── -->
 <div id="login-overlay">
   <div class="login-card">
     <div class="login-title">
-      <i class="ti ti-lock" style="font-size:20px;color:#7c6aff;"></i>
+      <i class="ti ti-lock" style="font-size:20px;color:#7c6aff;" aria-hidden="true"></i>
       Acceso al panel
     </div>
     <div class="field">
@@ -251,652 +152,357 @@
       <label>Contraseña</label>
       <input type="password" id="inp-pass" placeholder="••••••••" autocomplete="current-password" />
     </div>
-    <span class="login-err" id="login-err"></span>
+    <span class="login-err" id="login-err">
+      <i class="ti ti-alert-circle" style="font-size:12px;vertical-align:-1px;"></i>
+      No se pudo conectar. Verifica los datos.
+    </span>
     <button class="login-btn" onclick="conectar()">
       <i class="ti ti-plug-connected" style="font-size:13px;vertical-align:-1px;"></i>
       Conectar
     </button>
   </div>
 </div>
-
-<!-- ── App ────────────────────────────────────────────── -->
-<div id="app">
-
-  <!-- Header -->
-  <div class="app-header">
+ 
+<!-- ── Panel principal ────────────────────────────────── -->
+<div class="wrapper" id="main">
+ 
+  <div class="header">
     <div class="header-left">
       <span style="font-size:13px;font-weight:700;color:#7c6aff;letter-spacing:0.08em;">TADASHY</span>
       <span style="color:rgba(160,130,255,0.3);font-size:13px;">·</span>
-      <i class="ti ti-eye" style="font-size:18px;color:#9d8ec7;"></i>
-      <span style="color:#9d8ec7;font-size:14px;">Visión artificial</span>
+      <i class="ti ti-robot" style="font-size:18px;color:#9d8ec7;" aria-hidden="true"></i>
+      <span style="color:#9d8ec7;font-size:14px;">4 servos</span>
     </div>
-    <div class="header-right">
-      <span id="device-badge" class="badge badge-dev-off">
-        <i class="ti ti-cpu" style="font-size:11px;"></i> ESP32 sin datos
-      </span>
-      <span id="conn-badge" class="badge badge-warn">
-        <i class="ti ti-wifi-off" style="font-size:11px;"></i> Conectando
-      </span>
-    </div>
+    <span id="conn-badge" class="badge badge-warn">
+      <i class="ti ti-wifi-off" style="font-size:12px"></i> Conectando…
+    </span>
   </div>
-
-  <!-- Main -->
-  <div class="main-layout">
-
-    <!-- Camera side -->
-    <div class="camera-side">
-      <div class="cam-toolbar">
-        <button class="cam-btn" id="startBtn" onclick="toggleCamera()">
-          <i class="ti ti-player-play" style="font-size:13px;"></i> Iniciar cámara
+ 
+  <!-- Banner estado del ESP32 -->
+  <div id="device-banner">
+    <div class="device-info">
+      <div class="device-dot" id="device-dot"></div>
+      <div>
+        <div id="device-label">ESP32 — sin datos aún</div>
+        <div id="device-since"></div>
+      </div>
+    </div>
+    <button id="logout-btn" onclick="logout()">
+      <i class="ti ti-logout" style="font-size:11px;vertical-align:-1px;"></i> Salir
+    </button>
+  </div>
+ 
+  <!-- Grid 4 servos -->
+  <div class="grid" id="servo-grid"></div>
+ 
+  <!-- Panel inferior -->
+  <div class="bottom-grid">
+    <div class="card">
+      <p class="section-label">Modo de operación</p>
+      <div class="mode-row">
+        <button class="mode-btn active" id="btn-manual" onclick="setModo('manual')">
+          <i class="ti ti-hand-finger" aria-hidden="true"></i> Manual
         </button>
-        <div class="mode-group">
-          <button class="mode-pill active" id="modePos" onclick="setMode('position')">Posición</button>
-          <button class="mode-pill" id="modeGest" onclick="setMode('gesture')">Gestos</button>
-        </div>
+        <button class="mode-btn" id="btn-auto" onclick="setModo('auto')">
+          <i class="ti ti-cpu" aria-hidden="true"></i> Auto
+        </button>
+        <a href="brazo_vision.html" class="mode-btn" style="text-decoration:none;" onclick="setModo('vision')">
+          <i class="ti ti-eye" aria-hidden="true"></i> Visión
+        </a>
       </div>
-
-      <div class="fps-strip">
-        <span class="fps-label">FPS</span>
-        <span class="fps-val" id="fpsVal">--</span>
-        <span class="fps-label">Mano</span>
-        <div class="hand-box" id="handBox">✋</div>
-        <span class="fps-label">Confianza</span>
-        <span class="fps-val" id="confVal">--%</span>
-        <span class="fps-label" style="margin-left:auto;" id="modeLabel">Modo: Posición</span>
-      </div>
-
-      <div class="cam-wrapper">
-        <div class="no-cam-msg" id="noCamMsg">
-          <i class="ti ti-camera-off icon"></i>
-          <p>Presiona Iniciar cámara</p>
-          <p style="font-size:10px;opacity:0.5;margin-top:4px;">MediaPipe Hands · Tiempo real</p>
-        </div>
-        <video id="videoElement" autoplay playsinline></video>
-        <canvas id="outputCanvas"></canvas>
-        <div style="position:absolute;inset:0;pointer-events:none;">
-          <div class="corner tl"></div>
-          <div class="corner tr"></div>
-          <div class="corner bl"></div>
-          <div class="corner br"></div>
-        </div>
-        <div class="gesture-badge" id="gestureBadge"></div>
-      </div>
+      <button class="reset-btn" onclick="resetAll()">
+        <i class="ti ti-refresh" aria-hidden="true"></i> Centrar todos (90°)
+      </button>
     </div>
-
-    <!-- Right panel -->
-    <div class="right-panel">
-
-      <!-- Servos -->
-      <div class="panel-block">
-        <div class="block-label"><i class="ti ti-adjustments-horizontal" style="font-size:11px;"></i> Servos</div>
-        <div class="servo-row">
-          <span class="servo-name">Base</span>
-          <div class="servo-track"><div class="servo-fill" id="fillBase" style="width:50%"></div><div class="servo-thumb" id="thumbBase" style="left:50%"></div></div>
-          <span class="servo-val" id="valBase">90°</span>
-        </div>
-        <div class="servo-row">
-          <span class="servo-name">Hombro</span>
-          <div class="servo-track"><div class="servo-fill" id="fillShoulder" style="width:50%"></div><div class="servo-thumb" id="thumbShoulder" style="left:50%"></div></div>
-          <span class="servo-val" id="valShoulder">90°</span>
-        </div>
-        <div class="servo-row">
-          <span class="servo-name">Codo</span>
-          <div class="servo-track"><div class="servo-fill" id="fillElbow" style="width:50%"></div><div class="servo-thumb" id="thumbElbow" style="left:50%"></div></div>
-          <span class="servo-val" id="valElbow">90°</span>
-        </div>
-        <div class="servo-row">
-          <span class="servo-name">Muñeca</span>
-          <div class="servo-track"><div class="servo-fill" id="fillWrist" style="width:50%"></div><div class="servo-thumb" id="thumbWrist" style="left:50%"></div></div>
-          <span class="servo-val" id="valWrist">90°</span>
-        </div>
-      </div>
-
-      <!-- Gripper -->
-      <div class="panel-block">
-        <div class="block-label"><i class="ti ti-hand-grab" style="font-size:11px;"></i> Gripper</div>
-        <div class="gripper-wrap">
-          <div class="gripper-jaw left" id="jawLeft"></div>
-          <div class="gripper-center">
-            <div class="gripper-pct" id="gripperPct">50%</div>
-            <div class="gripper-sub">apertura</div>
-          </div>
-          <div class="gripper-jaw right" id="jawRight"></div>
-        </div>
-      </div>
-
-      <!-- Landmarks -->
-      <div class="panel-block">
-        <div class="block-label"><i class="ti ti-point" style="font-size:11px;"></i> Landmarks</div>
-        <div class="lm-grid">
-          <div class="lm-card"><div class="lm-name">Muñeca</div><div class="lm-val">X:<span id="lmWristX">--</span></div><div class="lm-val">Y:<span id="lmWristY">--</span></div></div>
-          <div class="lm-card"><div class="lm-name">Índice tip</div><div class="lm-val">X:<span id="lmIndexX">--</span></div><div class="lm-val">Y:<span id="lmIndexY">--</span></div></div>
-          <div class="lm-card"><div class="lm-name">Pulgar tip</div><div class="lm-val">X:<span id="lmThumbX">--</span></div><div class="lm-val">Y:<span id="lmThumbY">--</span></div></div>
-          <div class="lm-card"><div class="lm-name">Distancia</div><div class="lm-val">D:<span id="lmDist">--</span></div><div class="lm-val">G:<span id="lmGrip">--</span></div></div>
-        </div>
-      </div>
-
-      <!-- Arm SVG -->
-      <div class="panel-block">
-        <div class="block-label"><i class="ti ti-robot" style="font-size:11px;"></i> Vista del brazo</div>
-        <div class="arm-wrap">
-          <svg id="armSvg" width="150" height="150" viewBox="0 0 160 160">
-            <rect x="60" y="140" width="40" height="12" rx="2" fill="#1e1638" stroke="rgba(124,106,255,0.4)" stroke-width="1"/>
-            <line x1="80" y1="140" x2="80" y2="128" stroke="rgba(124,106,255,0.4)" stroke-width="1.5"/>
-            <line id="svgShoulder" x1="80" y1="128" x2="80" y2="88" stroke="#7c6aff" stroke-width="3" stroke-linecap="round"/>
-            <line id="svgElbow"    x1="80" y1="88"  x2="80" y2="58" stroke="#f87191" stroke-width="3" stroke-linecap="round"/>
-            <line id="svgWrist"    x1="80" y1="58"  x2="80" y2="42" stroke="#3ecf8e" stroke-width="2" stroke-linecap="round"/>
-            <circle cx="80" cy="128" r="4" fill="#7c6aff" opacity="0.8"/>
-            <circle id="cjShoulder" cx="80" cy="88" r="4" fill="#7c6aff" opacity="0.8"/>
-            <circle id="cjElbow"    cx="80" cy="58" r="3" fill="#f87191" opacity="0.8"/>
-            <circle id="cjWrist"    cx="80" cy="42" r="2.5" fill="#3ecf8e" opacity="0.8"/>
-          </svg>
-        </div>
-      </div>
-
-      <!-- Log -->
-      <div class="panel-block">
-        <div class="log-header">
-          <div class="block-label" style="margin:0;"><i class="ti ti-terminal-2" style="font-size:11px;"></i> Log MQTT</div>
-          <button class="log-clear" onclick="clearLog()">limpiar</button>
-        </div>
-        <div id="mqtt-log"></div>
-      </div>
-
+    <div class="card">
+      <p class="section-label">Estado</p>
+      <div class="stat-line"><span>Publicaciones</span><span id="pub-total">0</span></div>
+      
+      <div class="stat-line"><span>Puerto</span><span>8883 (TLS)</span></div>
+      <div class="stat-line"><span>Throttle</span><span>40 ms</span></div>
     </div>
   </div>
+ 
+  <!-- Log -->
+  <div class="card">
+    <div class="log-header">
+      <p class="section-label" style="margin:0;">
+        <i class="ti ti-terminal-2" style="font-size:12px;vertical-align:-1px;" aria-hidden="true"></i>
+        Log de actividad
+      </p>
+      <button class="log-clear" onclick="clearLog()">limpiar</button>
+    </div>
+    <div id="log"></div>
+  </div>
+ 
 </div>
-
+ 
 <script>
-// ── MQTT ──────────────────────────────────────────────────
-const MQTT_HOST = '41287df21912452aa44d6b4f228a5f6d.s1.eu.hivemq.cloud';
-let mqttClient = null;
-let lastMqttTime = 0;
-let deviceOnline = false;
-let deviceTimer = null;
-let connectedAt = null;
-
-// ── Vision state ─────────────────────────────────────────
-let cameraRunning = false;
-let controlMode = 'position';
-let lastFrameTime = Date.now();
-let frameCount = 0;
-let gestureTimeout = null;
-let handsInstance = null;
-let cameraInstance = null;
-
-const servos = { base: 90, shoulder: 90, elbow: 90, wrist: 90 };
-let gripperOpen = 50;
-
-const videoEl  = document.getElementById('videoElement');
-const canvas   = document.getElementById('outputCanvas');
-const ctx      = canvas.getContext('2d');
-
+// ── Estado global ─────────────────────────────────────────
+let client = null;
+let pubTotal = 0;
+let ultimoEnvio = [0,0,0,0];
+const INTERVALO = 40;
+const servoNames = ['Base','Hombro','Codo','Muñeca'];
+const servoIcons = ['ti-rotate-clockwise','ti-arrow-up','ti-fold-up','ti-hand-grab'];
+ 
 // ── Log ───────────────────────────────────────────────────
-const logEl = document.getElementById('mqtt-log');
-function addLog(msg, tipo = 'inf') {
-  const ts = new Date().toLocaleTimeString('es-CO', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+const logEl = document.getElementById('log');
+function addLog(msg, tipo='inf') {
+  const ts = new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   const row = document.createElement('div');
   row.className = 'log-row';
   row.innerHTML = `<span class="log-ts">${ts}</span><span class="log-${tipo}">${msg}</span>`;
   logEl.prepend(row);
-  while (logEl.children.length > 40) logEl.removeChild(logEl.lastChild);
+  while (logEl.children.length > 50) logEl.removeChild(logEl.lastChild);
 }
 function clearLog() { logEl.innerHTML = ''; }
-
+ 
 // ── Device status ─────────────────────────────────────────
+let deviceOnline = false;
+let lastSeenInterval = null;
+let connectedAt = null;
+ 
 function setDevice(online) {
   deviceOnline = online;
-  const badge = document.getElementById('device-badge');
+  const dot   = document.getElementById('device-dot');
+  const label = document.getElementById('device-label');
+  const since = document.getElementById('device-since');
+ 
   if (online) {
-    badge.className = 'badge badge-dev-on';
-    badge.innerHTML = '<i class="ti ti-cpu" style="font-size:11px;"></i> ESP32 conectado';
-    connectedAt = Date.now();
-    clearInterval(deviceTimer);
-    deviceTimer = setInterval(() => {
-      const s = Math.floor((Date.now() - connectedAt) / 1000);
-      badge.innerHTML = `<i class="ti ti-cpu" style="font-size:11px;"></i> ESP32 · ${s}s`;
+    dot.className   = 'device-dot on';
+    label.textContent = 'ESP32 — conectado';
+    connectedAt     = Date.now();
+    clearInterval(lastSeenInterval);
+    lastSeenInterval = setInterval(() => {
+      const secs = Math.floor((Date.now() - connectedAt) / 1000);
+      since.textContent = `Activo hace ${secs}s`;
     }, 1000);
     addLog('ESP32 en línea', 'dev');
   } else {
-    badge.className = 'badge badge-dev-off';
-    badge.innerHTML = '<i class="ti ti-cpu" style="font-size:11px;"></i> ESP32 offline';
-    clearInterval(deviceTimer);
+    dot.className   = 'device-dot off';
+    label.textContent = 'ESP32 — desconectado';
+    clearInterval(lastSeenInterval);
+    since.textContent = 'Sin señal';
     addLog('ESP32 fuera de línea', 'err');
   }
 }
-
-// ── MQTT Connect ──────────────────────────────────────────
+ 
+// ── Construir cards de servos ─────────────────────────────
+function buildCards() {
+  const grid = document.getElementById('servo-grid');
+  grid.innerHTML = '';
+  const arcLen = (Math.PI * 58).toFixed(1);
+  const arcHalf = (Math.PI * 29).toFixed(1);
+ 
+  for (let i = 1; i <= 4; i++) {
+    grid.innerHTML += `
+    <div class="servo-card" id="card${i}">
+      <div class="servo-header">
+        <div class="servo-title">
+          <i class="ti ${servoIcons[i-1]}" style="font-size:14px;color:#7c6aaa;" aria-hidden="true"></i>
+          Servo ${i} — ${servoNames[i-1]}
+        </div>
+        <div class="servo-angle">
+          <span class="num" id="num${i}">90</span>
+          <span class="deg">°</span>
+        </div>
+      </div>
+      <div class="arc-wrap">
+        <svg width="140" height="82" viewBox="0 0 140 82" role="img" aria-label="Ángulo servo ${i}">
+          <path class="arc-bg-s"   d="M 12,70 A 58,58 0 0,1 128,70"/>
+          <path class="arc-fill-s" id="arc${i}"
+                d="M 12,70 A 58,58 0 0,1 128,70"
+                stroke-dasharray="${arcLen}" stroke-dashoffset="${arcHalf}"/>
+          <line id="needle${i}" x1="70" y1="70" x2="70" y2="16"
+                stroke="#a78bff" stroke-width="2" stroke-linecap="round" class="needle-s"/>
+          <circle cx="70" cy="70" r="4" fill="#7c6aff"/>
+          <text x="10"  y="80" font-size="9" fill="#4a3f6b">0°</text>
+          <text x="62"  y="12" font-size="9" fill="#4a3f6b">90°</text>
+          <text x="118" y="80" font-size="9" fill="#4a3f6b" text-anchor="end">180°</text>
+        </svg>
+      </div>
+      <input type="range" min="0" max="180" value="90" step="1"
+             id="slider${i}" oninput="mover(${i}, this.value)"/>
+      <div class="slider-ticks"><span>0°</span><span>90°</span><span>180°</span></div>
+      <div class="presets">
+        <button class="preset" onclick="irA(${i},0)">0°</button>
+        <button class="preset" onclick="irA(${i},45)">45°</button>
+        <button class="preset" onclick="irA(${i},90)">90°</button>
+        <button class="preset" onclick="irA(${i},135)">135°</button>
+        <button class="preset" onclick="irA(${i},180)">180°</button>
+      </div>
+    </div>`;
+  }
+}
+ 
+// ── Ángulo visual ─────────────────────────────────────────
+function updateAngle(i, val) {
+  const v = parseInt(val);
+  const arcLen = Math.PI * 58;
+  document.getElementById('num'    + i).textContent = v;
+  document.getElementById('arc'    + i).style.strokeDashoffset = (arcLen - (v/180)*arcLen).toFixed(1);
+  document.getElementById('needle' + i).style.transform = `rotate(${-90 + v}deg)`;
+}
+ 
+// ── Mover servo ───────────────────────────────────────────
+function mover(servo, valor) {
+  updateAngle(servo, valor);
+  const ahora = Date.now();
+  if (ahora - ultimoEnvio[servo-1] > INTERVALO && client && client.connected) {
+    client.publish('brazo/servo/' + servo, String(valor));
+    ultimoEnvio[servo-1] = ahora;
+    pubTotal++;
+    document.getElementById('pub-total').textContent = pubTotal;
+    const card = document.getElementById('card' + servo);
+    card.classList.add('pulse');
+    setTimeout(() => card.classList.remove('pulse'), 300);
+    addLog(`Servo ${servo} (${servoNames[servo-1]}) → ${valor}°`, 'ok');
+  }
+}
+ 
+function irA(servo, val) {
+  document.getElementById('slider' + servo).value = val;
+  updateAngle(servo, val);
+  if (client && client.connected) {
+    client.publish('brazo/servo/' + servo, String(val));
+    pubTotal++;
+    document.getElementById('pub-total').textContent = pubTotal;
+    addLog(`Preset servo ${servo} → ${val}°`, 'ok');
+  }
+}
+ 
+function resetAll() {
+  for (let i = 1; i <= 4; i++) irA(i, 90);
+  addLog('Todos centrados a 90°', 'inf');
+}
+ 
+function setModo(modo) {
+  document.getElementById('btn-manual').classList.toggle('active', modo==='manual');
+  document.getElementById('btn-auto').classList.toggle('active', modo==='auto');
+  if (client && client.connected) client.publish('brazo/modo', modo);
+  addLog(`Modo → ${modo}`, 'inf');
+}
+ 
+// ── Conectar con credenciales ─────────────────────────────
+const MQTT_HOST = '41287df21912452aa44d6b4f228a5f6d.s1.eu.hivemq.cloud';
+ 
 function conectar(user, pass) {
   if (!user) user = document.getElementById('inp-user').value.trim();
   if (!pass) pass = document.getElementById('inp-pass').value;
   const errEl = document.getElementById('login-err');
   errEl.style.display = 'none';
-
+ 
   if (!user || !pass) {
     errEl.textContent = 'Completa usuario y contraseña.';
     errEl.style.display = 'block';
     return;
   }
-
-  mqttClient = mqtt.connect(`wss://${MQTT_HOST}:8884/mqtt`, {
+ 
+  const url = `wss://${MQTT_HOST}:8884/mqtt`;
+  addLog('Conectando al broker…', 'inf');
+ 
+  client = mqtt.connect(url, {
     username: user,
     password: pass,
-    clientId: 'web_vision_' + Math.random().toString(16).slice(2, 8),
+    clientId: 'web_brazo_' + Math.random().toString(16).slice(2,8),
     connectTimeout: 6000,
     reconnectPeriod: 2000,
-    keepalive: 30,           // ping cada 30s para mantener vivo en segundo plano
+    keepalive: 30,
   });
-
-  mqttClient.on('connect', () => {
+ 
+  // Reconectar al volver a la pestaña
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && client && !client.connected) {
+      addLog('Pestaña activa — reconectando…', 'inf');
+      client.reconnect();
+    }
+  });
+ 
+  client.on('connect', () => {
+    // Guardar credenciales para la próxima vez
     localStorage.setItem('brazo_user', user);
     localStorage.setItem('brazo_pass', pass);
+ 
     document.getElementById('login-overlay').style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
+    document.getElementById('main').style.display = 'flex';
+    document.getElementById('main').style.flexDirection = 'column';
     document.getElementById('conn-badge').className = 'badge badge-ok';
-    document.getElementById('conn-badge').innerHTML = '<i class="ti ti-wifi" style="font-size:11px;"></i> Conectado';
-    mqttClient.subscribe('brazo/status');
-    for (let i = 1; i <= 4; i++) mqttClient.subscribe('brazo/servo/feedback/' + i);
+    document.getElementById('conn-badge').innerHTML = '<i class="ti ti-wifi" style="font-size:12px"></i> Conectado';
+ 
+    client.subscribe('brazo/status');
+    for (let i = 1; i <= 4; i++) client.subscribe('brazo/servo/feedback/' + i);
     addLog('Broker conectado', 'ok');
+    buildCards();
   });
-
-  mqttClient.on('error', () => {
+ 
+  client.on('error', (e) => {
+    // Si falla con credenciales guardadas, borrarlas
     localStorage.removeItem('brazo_user');
     localStorage.removeItem('brazo_pass');
     errEl.textContent = 'No se pudo conectar. Verifica usuario y contraseña.';
     errEl.style.display = 'block';
     document.getElementById('login-overlay').style.display = 'flex';
-    document.getElementById('app').style.display = 'none';
+    document.getElementById('main').style.display = 'none';
     document.getElementById('conn-badge').className = 'badge badge-err';
-    document.getElementById('conn-badge').innerHTML = '<i class="ti ti-wifi-off" style="font-size:11px;"></i> Error';
-    addLog('Error de conexión', 'err');
-    mqttClient.end();
+    document.getElementById('conn-badge').innerHTML = '<i class="ti ti-wifi-off" style="font-size:12px"></i> Error';
+    addLog('Error de conexión: ' + (e.message || ''), 'err');
+    client.end();
   });
-
-  mqttClient.on('offline', () => {
+ 
+  client.on('offline', () => {
     document.getElementById('conn-badge').className = 'badge badge-warn';
-    document.getElementById('conn-badge').innerHTML = '<i class="ti ti-wifi-off" style="font-size:11px;"></i> Desconectado';
+    document.getElementById('conn-badge').innerHTML = '<i class="ti ti-wifi-off" style="font-size:12px"></i> Desconectado';
     addLog('Broker desconectado', 'err');
   });
-
-  mqttClient.on('message', (topic, payload) => {
+ 
+  client.on('message', (topic, payload) => {
     const msg = payload.toString();
-    if (topic === 'brazo/status') { setDevice(msg === 'online'); return; }
+    if (topic === 'brazo/status') {
+      setDevice(msg === 'online');
+      return;
+    }
+    // Feedback de ángulo real del ESP32 → actualizar arco y slider
     const match = topic.match(/^brazo\/servo\/feedback\/(\d+)$/);
     if (match) {
       const idx = parseInt(match[1]);
       const angle = parseInt(msg);
       if (idx >= 1 && idx <= 4 && angle >= 0 && angle <= 180) {
-        const names = ['Base', 'Shoulder', 'Elbow', 'Wrist'];
-        setServoUI(names[idx - 1], angle);
+        updateAngle(idx, angle);
+        // Solo mueve el slider si el usuario no lo está tocando
+        const slider = document.getElementById('slider' + idx);
+        if (slider && document.activeElement !== slider) {
+          slider.value = angle;
+        }
       }
     }
   });
 }
-
-// Publish helper con throttle opcional
-function mqttPublish(topic, payload, throttleMs = 0) {
-  if (!mqttClient || !mqttClient.connected) return;
-  const now = Date.now();
-  if (throttleMs > 0 && now - lastMqttTime < throttleMs) return;
-  lastMqttTime = now;
-  mqttClient.publish(topic, payload);
-  addLog(`${topic} → ${payload}`, 'ok');
-}
-
-// ── Auto-login ────────────────────────────────────────────
-window.addEventListener('load', function autoLogin() {
+ 
+// ── Auto-login al cargar ──────────────────────────────────
+(function autoLogin() {
   const user = localStorage.getItem('brazo_user');
   const pass = localStorage.getItem('brazo_pass');
   if (user && pass) {
+    // Ocultar login de inmediato, sin esperar al evento load
     document.getElementById('login-overlay').style.display = 'none';
+    document.getElementById('inp-user').value = user;
+    document.getElementById('inp-pass').value = pass;
     conectar(user, pass);
   }
-});
-
+})();
+ 
+// ── Logout ────────────────────────────────────────────────
 function logout() {
   localStorage.removeItem('brazo_user');
   localStorage.removeItem('brazo_pass');
-  if (mqttClient) { mqttClient.end(); mqttClient = null; }
-  clearInterval(deviceTimer);
-  stopCamera();
-  document.getElementById('app').style.display = 'none';
+  if (client) { client.end(); client = null; }
+  clearInterval(lastSeenInterval);
+  document.getElementById('main').style.display = 'none';
   document.getElementById('login-overlay').style.display = 'flex';
   document.getElementById('inp-user').value = '';
   document.getElementById('inp-pass').value = '';
-}
-
-// ── Camera ────────────────────────────────────────────────
-async function toggleCamera() {
-  cameraRunning ? stopCamera() : await startCamera();
-}
-
-async function startCamera() {
-  document.getElementById('noCamMsg').style.display = 'none';
-
-  if (!handsInstance) {
-    handsInstance = new Hands({
-      locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
-    });
-    handsInstance.setOptions({
-      maxNumHands: 1,
-      modelComplexity: 0,           // 0 = más rápido, mejor FPS
-      minDetectionConfidence: 0.75,
-      minTrackingConfidence: 0.65
-    });
-    handsInstance.onResults(onResults);
-  }
-
-  try {
-    cameraInstance = new Camera(videoEl, {
-      onFrame: async () => {
-        canvas.width  = videoEl.videoWidth  || 1280;
-        canvas.height = videoEl.videoHeight || 720;
-        await handsInstance.send({ image: videoEl });
-        updateFPS();
-      },
-      width: 1280, height: 720,     // resolución HD
-      facingMode: 'user'
-    });
-    await cameraInstance.start();
-    cameraRunning = true;
-
-    const btn = document.getElementById('startBtn');
-    btn.innerHTML = '<i class="ti ti-player-stop" style="font-size:13px;"></i> Detener';
-    btn.classList.add('danger');
-    addLog('Cámara iniciada', 'ok');
-    mqttPublish('brazo/vision', '{"camera":true}');
-  } catch (e) {
-    addLog('Error cámara: ' + e.message, 'err');
-  }
-}
-
-function stopCamera() {
-  if (cameraInstance) { cameraInstance.stop(); cameraInstance = null; }
-  cameraRunning = false;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  document.getElementById('noCamMsg').style.display = 'flex';
-  document.getElementById('handBox').classList.remove('detected');
-  document.getElementById('fpsVal').textContent = '--';
-  document.getElementById('confVal').textContent = '--%';
-
-  const btn = document.getElementById('startBtn');
-  btn.innerHTML = '<i class="ti ti-player-play" style="font-size:13px;"></i> Iniciar cámara';
-  btn.classList.remove('danger');
-  addLog('Cámara detenida', 'inf');
-}
-
-function updateFPS() {
-  frameCount++;
-  const now = Date.now();
-  if (now - lastFrameTime >= 1000) {
-    document.getElementById('fpsVal').textContent = frameCount;
-    frameCount = 0;
-    lastFrameTime = now;
-  }
-}
-
-// ── MediaPipe results ─────────────────────────────────────
-function onResults(results) {
-  ctx.save();
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-    document.getElementById('handBox').classList.add('detected');
-
-    const lm         = results.multiHandLandmarks[0];
-    const handedness  = results.multiHandedness?.[0]?.label ?? 'Right'; // 'Left' o 'Right'
-    // Con cámara frontal espejada: MediaPipe etiqueta la mano derecha como 'Left'
-    const isRightHand = handedness === 'Left';
-
-    // Confianza real
-    const conf = Math.round((results.multiHandedness?.[0]?.score ?? 0.97) * 100);
-    document.getElementById('confVal').textContent = conf + '%';
-
-    // Skeleton
-    drawConnectors(ctx, lm, HAND_CONNECTIONS, {
-      color: 'rgba(124,106,255,0.75)',
-      lineWidth: 3
-    });
-    drawLandmarks(ctx, lm, {
-      color: '#c4b5fd',
-      fillColor: 'rgba(124,106,255,0.35)',
-      lineWidth: 1,
-      radius: 3
-    });
-
-    // Puntos clave: muñeca, índice tip, y pulgar correcto según mano
-    const thumbTipIdx = 4;   // siempre es lm[4]
-    const indexTipIdx = 8;
-    drawKeyPoint(ctx, lm[0],           '#f0b429', 8);  // Muñeca — amarillo
-    drawKeyPoint(ctx, lm[thumbTipIdx], '#f87191', 8);  // Pulgar tip — rosa
-    drawKeyPoint(ctx, lm[indexTipIdx], '#3ecf8e', 8);  // Índice tip — verde
-
-    // Etiqueta de mano en canvas
-    const wx = lm[0].x * canvas.width;
-    const wy = lm[0].y * canvas.height;
-    ctx.font = 'bold 13px Arial';
-    ctx.fillStyle = 'rgba(196,181,253,0.9)';
-    ctx.shadowColor = '#7c6aff';
-    ctx.shadowBlur = 6;
-    ctx.fillText(isRightHand ? 'Mano derecha' : 'Mano izquierda', wx + 12, wy - 10);
-    ctx.shadowBlur = 0;
-
-    if (controlMode === 'position') processPositionMode(lm, isRightHand);
-    else processGestureMode(lm, isRightHand);
-
-  } else {
-    document.getElementById('handBox').classList.remove('detected');
-    document.getElementById('confVal').textContent = '--%';
-  }
-
-  ctx.restore();
-}
-
-function drawKeyPoint(ctx, lm, color, r) {
-  const x = lm.x * canvas.width;
-  const y = lm.y * canvas.height;
-  // Glow
-  ctx.shadowColor = color;
-  ctx.shadowBlur  = 12;
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  // Borde blanco
-  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-}
-
-// ── Filtro de suavizado (EMA) ─────────────────────────────
-// Evita saltos bruscos de ángulo — alpha bajo = más suave
-const EMA_ALPHA = 0.25;
-const smoothed = { base: 90, shoulder: 90, elbow: 90, wrist: 90 };
-
-function ema(prev, next) {
-  return Math.round(prev + EMA_ALPHA * (next - prev));
-}
-
-function clamp(v, min, max) {
-  return Math.max(min, Math.min(max, Math.round(v)));
-}
-
-// ── Modo Posición ─────────────────────────────────────────
-function processPositionMode(lm, isRightHand) {
-  const wrist    = lm[0];
-  const indexTip = lm[8];
-  const thumbTip = lm[4];
-  const indexMcp = lm[5];
-  const pinkyMcp = lm[17];
-
-  const rawBase     = clamp((1 - wrist.x) * 180, 0, 180);
-  const rawShoulder = clamp((1 - wrist.y) * 160 + 10, 10, 170);
-  const dy          = wrist.y - indexTip.y;
-  const rawElbow    = clamp(90 + dy * 280, 0, 180);
-  // Inclinación corregida por mano
-  const tilt        = isRightHand
-    ? (pinkyMcp.y - indexMcp.y)
-    : (indexMcp.y - pinkyMcp.y);
-  const rawWrist    = clamp(90 + tilt * 300, 0, 180);
-  const dist        = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
-  const grip        = clamp(dist * 600, 0, 100);
-
-  smoothed.base     = ema(smoothed.base,     rawBase);
-  smoothed.shoulder = ema(smoothed.shoulder, rawShoulder);
-  smoothed.elbow    = ema(smoothed.elbow,    rawElbow);
-  smoothed.wrist    = ema(smoothed.wrist,    rawWrist);
-
-  updateServosUI(smoothed.base, smoothed.shoulder, smoothed.elbow, smoothed.wrist, grip);
-  updateLandmarks(wrist, indexTip, thumbTip, dist, grip);
-
-  const now = Date.now();
-  if (now - lastMqttTime > 100) {
-    lastMqttTime = now;
-    if (mqttClient && mqttClient.connected) {
-      mqttClient.publish('brazo/servo/1', String(smoothed.base));
-      mqttClient.publish('brazo/servo/2', String(smoothed.shoulder));
-      mqttClient.publish('brazo/servo/3', String(smoothed.elbow));
-      mqttClient.publish('brazo/servo/4', String(smoothed.wrist));
-      addLog(`B:${smoothed.base}° H:${smoothed.shoulder}° C:${smoothed.elbow}° M:${smoothed.wrist}°`, 'ok');
-    }
-  }
-}
-
-// ── Modo Gestos ───────────────────────────────────────────
-const GESTURE_CMDS = {
-  'ABIERTO':       { base:90,  shoulder:135, elbow:90,  wrist:90,  grip:100 },
-  'PUÑO':          { base:90,  shoulder:45,  elbow:45,  wrist:90,  grip:0   },
-  'APUNTAR':       { base:90,  shoulder:90,  elbow:160, wrist:90,  grip:0   },
-  'PAZ':           { base:90,  shoulder:90,  elbow:90,  wrist:135, grip:50  },
-  'MEÑIQUE':       { base:45,  shoulder:90,  elbow:90,  wrist:90,  grip:80  },
-  'PULGAR ARRIBA': { base:90,  shoulder:170, elbow:90,  wrist:90,  grip:50  },
-  'TRES DEDOS':    { base:135, shoulder:90,  elbow:120, wrist:90,  grip:60  },
-};
-
-function processGestureMode(lm, isRightHand) {
-  const gesture = detectGesture(lm, isRightHand);
-  showGesture(gesture);
-  const cmd = GESTURE_CMDS[gesture];
-  if (!cmd) return;
-  updateServosUI(cmd.base, cmd.shoulder, cmd.elbow, cmd.wrist, cmd.grip);
-  const now = Date.now();
-  if (now - lastMqttTime > 300) {
-    lastMqttTime = now;
-    if (mqttClient && mqttClient.connected) {
-      mqttClient.publish('brazo/servo/1', String(cmd.base));
-      mqttClient.publish('brazo/servo/2', String(cmd.shoulder));
-      mqttClient.publish('brazo/servo/3', String(cmd.elbow));
-      mqttClient.publish('brazo/servo/4', String(cmd.wrist));
-      addLog(`Gesto: ${gesture}`, 'ok');
-    }
-  }
-}
-
-function detectGesture(lm, isRightHand) {
-  const tips = [4, 8, 12, 16, 20];
-  const mids = [3, 6, 10, 14, 18];
-  const fingers = tips.map((tip, i) => {
-    if (i === 0) {
-      // Pulgar: dirección depende de qué mano es
-      return isRightHand
-        ? lm[tip].x < lm[mids[i]].x
-        : lm[tip].x > lm[mids[i]].x;
-    }
-    return lm[tip].y < lm[mids[i]].y;
-  });
-  const [thumb, index, middle, ring, pinky] = fingers;
-
-  if (index && middle && ring && pinky && thumb)     return 'ABIERTO';
-  if (!index && !middle && !ring && !pinky)           return 'PUÑO';
-  if (index && !middle && !ring && !pinky)            return 'APUNTAR';
-  if (index && middle && !ring && !pinky)             return 'PAZ';
-  if (!index && !middle && !ring && pinky)            return 'MEÑIQUE';
-  if (thumb && !index && !middle && !ring && !pinky)  return 'PULGAR ARRIBA';
-  if (index && middle && ring && !pinky)              return 'TRES DEDOS';
-  return null;
-}
-
-function showGesture(gesture) {
-  if (!gesture) return;
-  const badge = document.getElementById('gestureBadge');
-  badge.textContent = gesture;
-  badge.classList.add('show');
-  clearTimeout(gestureTimeout);
-  gestureTimeout = setTimeout(() => badge.classList.remove('show'), 1500);
-}
-
-// ── UI update ─────────────────────────────────────────────
-function updateServosUI(base, shoulder, elbow, wrist, grip) {
-  setServoUI('Base',     base);
-  setServoUI('Shoulder', shoulder);
-  setServoUI('Elbow',    elbow);
-  setServoUI('Wrist',    wrist);
-  setGripperUI(grip);
-  updateArmSVG(base, shoulder, elbow, wrist);
-}
-
-function setServoUI(name, angle) {
-  const a   = Math.max(0, Math.min(180, angle));
-  const pct = (a / 180 * 100).toFixed(1);
-  document.getElementById('fill'  + name).style.width = pct + '%';
-  document.getElementById('thumb' + name).style.left  = pct + '%';
-  document.getElementById('val'   + name).textContent = a + '°';
-}
-
-function setGripperUI(pct) {
-  gripperOpen = Math.max(0, Math.min(100, pct));
-  document.getElementById('gripperPct').textContent = gripperOpen + '%';
-  const spread = gripperOpen / 100 * 25;
-  document.getElementById('jawLeft').style.transform  = `rotate(${-spread}deg)`;
-  document.getElementById('jawRight').style.transform = `rotate(${spread}deg)`;
-}
-
-function updateLandmarks(wrist, index, thumb, dist, grip) {
-  document.getElementById('lmWristX').textContent = wrist.x.toFixed(2);
-  document.getElementById('lmWristY').textContent = wrist.y.toFixed(2);
-  document.getElementById('lmIndexX').textContent = index.x.toFixed(2);
-  document.getElementById('lmIndexY').textContent = index.y.toFixed(2);
-  document.getElementById('lmThumbX').textContent = thumb.x.toFixed(2);
-  document.getElementById('lmThumbY').textContent = thumb.y.toFixed(2);
-  document.getElementById('lmDist').textContent   = dist.toFixed(3);
-  document.getElementById('lmGrip').textContent   = grip + '%';
-}
-
-function updateArmSVG(base, shoulder, elbow, wrist) {
-  const cx = 80, cy = 128;
-  const L1 = 40, L2 = 30, L3 = 18;
-  const aS = (shoulder / 180 * Math.PI) - Math.PI / 2;
-  const aE = (elbow    / 180 * Math.PI) - Math.PI / 2;
-  const aW = (wrist    / 180 * Math.PI) - Math.PI / 2;
-
-  const x1 = cx + Math.cos(aS) * L1;
-  const y1 = cy + Math.sin(aS) * L1;
-  const x2 = x1 + Math.cos(aS + aE - Math.PI / 2) * L2;
-  const y2 = y1 + Math.sin(aS + aE - Math.PI / 2) * L2;
-  const x3 = x2 + Math.cos(aS + aE + aW - Math.PI) * L3;
-  const y3 = y2 + Math.sin(aS + aE + aW - Math.PI) * L3;
-
-  const s = document.getElementById('svgShoulder');
-  const e = document.getElementById('svgElbow');
-  const w = document.getElementById('svgWrist');
-  s.setAttribute('x2', x1); s.setAttribute('y2', y1);
-  e.setAttribute('x1', x1); e.setAttribute('y1', y1);
-  e.setAttribute('x2', x2); e.setAttribute('y2', y2);
-  w.setAttribute('x1', x2); w.setAttribute('y1', y2);
-  w.setAttribute('x2', x3); w.setAttribute('y2', y3);
-  document.getElementById('cjShoulder').setAttribute('cx', x1); document.getElementById('cjShoulder').setAttribute('cy', y1);
-  document.getElementById('cjElbow').setAttribute('cx', x2);    document.getElementById('cjElbow').setAttribute('cy', y2);
-  document.getElementById('cjWrist').setAttribute('cx', x3);    document.getElementById('cjWrist').setAttribute('cy', y3);
-}
-
-// ── Mode toggle ───────────────────────────────────────────
-function setMode(mode) {
-  controlMode = mode;
-  document.getElementById('modePos').classList.toggle('active',  mode === 'position');
-  document.getElementById('modeGest').classList.toggle('active', mode === 'gesture');
-  document.getElementById('modeLabel').textContent = 'Modo: ' + (mode === 'position' ? 'Posición' : 'Gestos');
-  addLog(`Modo → ${mode}`, 'inf');
+  addLog('Sesión cerrada', 'inf');
 }
 </script>
 </body>
