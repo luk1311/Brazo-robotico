@@ -182,6 +182,7 @@ function conectar(user, pass) {
     document.getElementById('conn-badge').innerHTML = '<i class="ti ti-wifi" style="font-size:12px"></i> Conectado';
 
     client.subscribe('brazo/status');
+    for (let i = 1; i <= 4; i++) client.subscribe('brazo/servo/feedback/' + i);
     addLog('Broker conectado', 'ok');
     buildCards();
   });
@@ -210,6 +211,21 @@ function conectar(user, pass) {
     const msg = payload.toString();
     if (topic === 'brazo/status') {
       setDevice(msg === 'online');
+      return;
+    }
+    // Feedback de ángulo real del ESP32 → actualizar arco y slider
+    const match = topic.match(/^brazo\/servo\/feedback\/(\d+)$/);
+    if (match) {
+      const idx = parseInt(match[1]);
+      const angle = parseInt(msg);
+      if (idx >= 1 && idx <= 4 && angle >= 0 && angle <= 180) {
+        updateAngle(idx, angle);
+        // Solo mueve el slider si el usuario no lo está tocando
+        const slider = document.getElementById('slider' + idx);
+        if (slider && document.activeElement !== slider) {
+          slider.value = angle;
+        }
+      }
     }
   });
 }
