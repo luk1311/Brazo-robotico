@@ -492,6 +492,7 @@ function conectar(user, pass) {
     document.getElementById('conn-badge').className = 'badge badge-ok';
     document.getElementById('conn-badge').innerHTML = '<i class="ti ti-wifi" style="font-size:11px;"></i> Conectado';
     mqttClient.subscribe('brazo/status');
+    for (let i = 1; i <= 4; i++) mqttClient.subscribe('brazo/servo/feedback/' + i);
     addLog('Broker conectado', 'ok');
   });
  
@@ -515,7 +516,17 @@ function conectar(user, pass) {
   });
  
   mqttClient.on('message', (topic, payload) => {
-    if (topic === 'brazo/status') setDevice(payload.toString() === 'online');
+    const msg = payload.toString();
+    if (topic === 'brazo/status') { setDevice(msg === 'online'); return; }
+    const match = topic.match(/^brazo\/servo\/feedback\/(\d+)$/);
+    if (match) {
+      const idx = parseInt(match[1]);
+      const angle = parseInt(msg);
+      if (idx >= 1 && idx <= 4 && angle >= 0 && angle <= 180) {
+        const names = ['Base', 'Shoulder', 'Elbow', 'Wrist'];
+        setServoUI(names[idx - 1], angle);
+      }
+    }
   });
 }
  
